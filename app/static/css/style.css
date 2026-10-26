@@ -1,0 +1,30 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  color: #172033;
+  background: #f3f5f9;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+}
+
+.card {
+  width: min(32rem, calc(100% - 3rem));
+  padding: 2.5rem;
+  border: 1px solid #e0e5ee;
+  border-radius: 1rem;
+  background: white;
+  box-shadow: 0 1rem 3rem rgb(23 32 51 / 8%);
+}
+
+.eyebrow {
+  color: #4968c5;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

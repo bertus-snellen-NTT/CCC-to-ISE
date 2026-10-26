@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flask Starter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body>
+    <main class="card">
+      <p class="eyebrow">Flask starter</p>
+      <h1>Catalyst Center Assurance</h1>
+      <p>Your app is running. Retrieve the distinct assurance client MAC addresses from Catalyst Center.</p>
+      <p><a href="{{ url_for('main.assurance_mac_addresses') }}">View assurance MAC addresses (JSON)</a></p>
+    </main>
+  </body>
+</html>
