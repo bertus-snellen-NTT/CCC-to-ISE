@@ -1,6 +1,6 @@
 # Catalyst Center to ISE Endpoint Check
 
-A Flask app that retrieves distinct client MAC addresses from Cisco Catalyst Center Assurance.
+A Flask app that retrieves Cisco Catalyst Center Assurance client data, stores each successful retrieval in SQLite, and displays the latest saved run.
 
 ## Requirements
 
@@ -56,9 +56,13 @@ python run.py
 
 Open <http://127.0.0.1:5000> in your browser. The development server runs with debug mode enabled; do not use it as a production server.
 
+The landing page reads the latest saved Catalyst Center run from `instance/catalyst_center.sqlite3`. Select **Fetch latest data** to retrieve and persist a new run. The database is reused across application restarts; each successful fetch adds a timestamped run and stores the complete Catalyst Center client record as well as normalized MAC address, IPv4 address, vendor, connection status, and last update time fields.
+
 ## API
 
-`GET /api/assurance/mac-addresses` authenticates with Catalyst Center and retrieves clients from `/dna/data/api/v1/clients`, paging through the available results with one-based offsets. The request includes the current epoch timestamp in milliseconds, as required by the data API, and reuses it across pages. The JSON response contains a sorted, deduplicated `macAddresses` array and its `count`:
+`POST /api/assurance/clients` retrieves and saves a new timestamped Catalyst Center run. The landing page uses this endpoint when **Fetch latest data** is selected.
+
+`GET /api/assurance/mac-addresses` authenticates with Catalyst Center and retrieves clients from `/dna/data/api/v1/clients`, paging through the available results with one-based offsets. The request includes the current epoch timestamp in milliseconds, as required by the data API, and reuses it across pages. Each successful retrieval is stored in SQLite. The JSON response contains a sorted, deduplicated `macAddresses` array and its `count`:
 
 ```json
 {
@@ -69,7 +73,7 @@ Open <http://127.0.0.1:5000> in your browser. The development server runs with d
 
 The result reflects client records available from the Catalyst Center clients endpoint for your account; it is not a promise of an unlimited historical inventory. Configuration errors return HTTP 503 and Catalyst Center/API failures return HTTP 502.
 
-`GET /api/ise/endpoints` retrieves the current Catalyst Center Assurance MAC addresses, then checks each address against the ISE ERS endpoint API. It returns per-MAC lookup results, endpoint resources found by ISE, and a list of MAC addresses with no matching endpoint. The request uses ISE's `mac.EQ` filter and requires valid ISE ERS credentials. Configuration errors return HTTP 503; CATC or ISE API errors return HTTP 502.
+`GET /api/ise/endpoints` retrieves the current Catalyst Center Assurance clients and saves them as a timestamped run, then checks each distinct MAC address against the ISE ERS endpoint API. It returns per-MAC lookup results, endpoint resources found by ISE, and a list of MAC addresses with no matching endpoint. The request uses ISE's `mac.EQ` filter and requires valid ISE ERS credentials. Configuration errors return HTTP 503; CATC or ISE API errors return HTTP 502.
 
 ## Project structure
 
@@ -80,13 +84,16 @@ The result reflects client records available from the Catalyst Center clients en
 │   ├── routes.py
 │   ├── services/
 │   │   ├── catalyst_center.py
-│   │   └── ise.py
+│   │   ├── ise.py
+│   │   └── storage.py
 │   ├── static/
 │   │   └── css/
 │   │       └── style.css
 │   └── templates/
 │       └── index.html
 ├── config.example.ini
+├── instance/
+│   └── catalyst_center.sqlite3
 ├── requirements.txt
 └── run.py
 ```

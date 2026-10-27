@@ -3,15 +3,113 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Flask Starter</title>
+    <title>Catalyst Center Assurance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   </head>
   <body>
-    <main class="card">
-      <p class="eyebrow">Flask starter</p>
-      <h1>Catalyst Center Assurance</h1>
-      <p>Your app is running. Retrieve the distinct assurance client MAC addresses from Catalyst Center.</p>
-      <p><a href="{{ url_for('main.assurance_mac_addresses') }}">View assurance MAC addresses (JSON)</a></p>
+    <main class="dashboard">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Catalyst Center</p>
+          <h1>Assurance clients</h1>
+          {% if latest_run %}
+            <p class="subheading">
+              Showing {{ latest_run.record_count }} records saved
+              {{ latest_run.captured_at }} UTC
+            </p>
+          {% else %}
+            <p class="subheading">No saved Catalyst Center data yet.</p>
+          {% endif %}
+        </div>
+        <button id="refresh-button" type="button">Fetch latest data</button>
+      </header>
+
+      <p id="refresh-status" class="status" role="status" aria-live="polite"></p>
+
+      <section class="panel" aria-labelledby="clients-heading">
+        <h2 id="clients-heading">Latest saved client data</h2>
+        {% if clients %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">MAC address</th>
+                  <th scope="col">IPv4 address</th>
+                  <th scope="col">Vendor</th>
+                  <th scope="col">Connection status</th>
+                  <th scope="col">Last update time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for client in clients %}
+                  <tr>
+                    <td>{{ client.macAddress or "-" }}</td>
+                    <td>{{ client.ipv4Address or "-" }}</td>
+                    <td>{{ client.vendor or "-" }}</td>
+                    <td>{{ client.connectionStatus or "-" }}</td>
+                    <td>{{ client.lastUpdateTime or "-" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% elif latest_run %}
+          <p>This saved run contained no client records.</p>
+        {% else %}
+          <p>Use “Fetch latest data” to retrieve and save Catalyst Center clients.</p>
+        {% endif %}
+      </section>
+
+      <section class="panel" aria-labelledby="runs-heading">
+        <h2 id="runs-heading">Saved runs</h2>
+        {% if runs %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Run</th>
+                  <th scope="col">Timestamp (UTC)</th>
+                  <th scope="col">Records</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for run in runs %}
+                  <tr>
+                    <td>{{ run.id }}</td>
+                    <td>{{ run.captured_at }}</td>
+                    <td>{{ run.record_count }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p>No runs have been saved.</p>
+        {% endif %}
+      </section>
     </main>
+    <script>
+      const refreshButton = document.getElementById("refresh-button");
+      const refreshStatus = document.getElementById("refresh-status");
+
+      refreshButton.addEventListener("click", async () => {
+        refreshButton.disabled = true;
+        refreshStatus.textContent = "Fetching Catalyst Center data...";
+        try {
+          const response = await fetch("{{ url_for('main.refresh_assurance_clients') }}", {
+            method: "POST",
+            headers: { "Accept": "application/json" }
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || `Request failed (${response.status})`);
+          }
+          window.location.reload();
+        } catch (error) {
+          refreshStatus.textContent = error.message;
+          refreshButton.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

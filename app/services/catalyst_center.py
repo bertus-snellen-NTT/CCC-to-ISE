@@ -73,9 +73,9 @@ class CatalystCenterClient:
         self.session.verify = settings.verify_tls
         self.session.headers.update({"Accept": "application/json"})
 
-    def get_assurance_mac_addresses(self) -> list[str]:
+    def get_assurance_clients(self) -> list[dict]:
         self._authenticate()
-        mac_addresses = set()
+        assurance_clients = []
         offset = 1
         timestamp = int(time.time() * 1000)
 
@@ -99,16 +99,22 @@ class CatalystCenterClient:
                 )
 
             for client in clients:
-                if not isinstance(client, dict):
-                    continue
-                mac_address = client.get("macAddress")
-                if isinstance(mac_address, str) and mac_address.strip():
-                    mac_addresses.add(mac_address.strip().lower())
+                if isinstance(client, dict):
+                    assurance_clients.append(client)
 
             if len(clients) < self.settings.page_size:
                 break
             offset += len(clients)
 
+        return assurance_clients
+
+    def get_assurance_mac_addresses(self) -> list[str]:
+        mac_addresses = {
+            client["macAddress"].strip().lower()
+            for client in self.get_assurance_clients()
+            if isinstance(client.get("macAddress"), str)
+            and client["macAddress"].strip()
+        }
         return sorted(mac_addresses)
 
     @staticmethod

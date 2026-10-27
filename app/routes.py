@@ -5,13 +5,27 @@ from flask import Blueprint, current_app, jsonify, render_template
 
 from app.services.catalyst_center import CatalystCenterClient, load_settings
 from app.services.ise import ISEClient, load_ise_settings
+from app.services.storage import get_catalyst_center_data, save_catalyst_center_run
 
 main = Blueprint("main", __name__)
 
 
 @main.route("/")
 def index():
-    return render_template("index.html")
+    data = get_catalyst_center_data(_database_path())
+    return render_template("index.html", **data)
+
+
+@main.route("/api/assurance/clients", methods=["POST"])
+def refresh_assurance_clients():
+    try:
+        run = _fetch_and_store_clients(_config_path())
+    except (OSError, ValueError) as error:
+        return jsonify(error=str(error)), 503
+    except requests.RequestException as error:
+        return jsonify(error=f"Catalyst Center request failed: {error}"), 502
+
+    return jsonify(run=run), 201
 
 
 @main.route("/api/assurance/mac-addresses")
@@ -24,10 +38,12 @@ def assurance_mac_addresses():
         return jsonify(error=str(error)), 503
 
     try:
-        mac_addresses = CatalystCenterClient(settings).get_assurance_mac_addresses()
+        clients = CatalystCenterClient(settings).get_assurance_clients()
     except (requests.RequestException, ValueError) as error:
         return jsonify(error=f"Catalyst Center request failed: {error}"), 502
 
+    save_catalyst_center_run(_database_path(), clients)
+    mac_addresses = _mac_addresses(clients)
     return jsonify(count=len(mac_addresses), macAddresses=mac_addresses)
 
 
@@ -42,12 +58,12 @@ def ise_endpoints_for_assurance_clients():
         return jsonify(error=str(error)), 503
 
     try:
-        mac_addresses = CatalystCenterClient(
-            catalyst_settings
-        ).get_assurance_mac_addresses()
+        clients = CatalystCenterClient(catalyst_settings).get_assurance_clients()
     except (requests.RequestException, ValueError) as error:
         return jsonify(error=f"Catalyst Center request failed: {error}"), 502
 
+    save_catalyst_center_run(_database_path(), clients)
+    mac_addresses = _mac_addresses(clients)
     ise_client = ISEClient(ise_settings)
     results = []
     try:
@@ -79,3 +95,24 @@ def _config_path() -> Path:
     if not config_path.is_absolute():
         config_path = Path(current_app.root_path).parent / config_path
     return config_path
+
+
+def _database_path() -> Path:
+    return Path(current_app.config["DATABASE_PATH"])
+
+
+def _fetch_and_store_clients(config_path: Path) -> dict:
+    settings = load_settings(config_path)
+    clients = CatalystCenterClient(settings).get_assurance_clients()
+    return save_catalyst_center_run(_database_path(), clients)
+
+
+def _mac_addresses(clients: list[dict]) -> list[str]:
+    return sorted(
+        {
+            mac_address.strip().lower()
+            for client in clients
+            if isinstance((mac_address := client.get("macAddress")), str)
+            and mac_address.strip()
+        }
+    )
