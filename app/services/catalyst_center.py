@@ -86,6 +86,7 @@ class CatalystCenterClient:
                     "timestamp": timestamp,
                     "limit": self.settings.page_size,
                     "offset": offset,
+                    "type": "Wired",
                 },
                 timeout=self.settings.request_timeout_seconds,
             )
