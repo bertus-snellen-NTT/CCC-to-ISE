@@ -26,77 +26,193 @@
 
       <p id="refresh-status" class="status" role="status" aria-live="polite"></p>
 
-      <section class="panel" aria-labelledby="clients-heading">
-        <h2 id="clients-heading">Latest saved client data</h2>
-        {% if clients %}
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">MAC address</th>
-                  <th scope="col">IPv4 address</th>
-                  <th scope="col">Vendor</th>
-                  <th scope="col">Connection status</th>
-                  <th scope="col">Last update time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for client in clients %}
+      <details class="panel collapsible-panel" open>
+        <summary id="clients-heading">Latest saved client data</summary>
+        <div class="panel-content">
+          {% if clients %}
+            <div class="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <td>{{ client.macAddress or "-" }}</td>
-                    <td>{{ client.ipv4Address or "-" }}</td>
-                    <td>{{ client.vendor or "-" }}</td>
-                    <td>{{ client.connectionStatus or "-" }}</td>
-                    <td>{{ client.lastUpdateTime or "-" }}</td>
+                    <th scope="col">MAC address</th>
+                    <th scope="col">IPv4 address</th>
+                    <th scope="col">Vendor</th>
+                    <th scope="col">Connection status</th>
+                    <th scope="col">Last update time</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% elif latest_run %}
-          <p>This saved run contained no client records.</p>
-        {% else %}
-          <p>Use “Fetch latest data” to retrieve and save Catalyst Center clients.</p>
-        {% endif %}
-      </section>
+                </thead>
+                <tbody>
+                  {% for client in clients %}
+                    <tr>
+                      <td>{{ client.macAddress or "-" }}</td>
+                      <td>{{ client.ipv4Address or "-" }}</td>
+                      <td>{{ client.vendor or "-" }}</td>
+                      <td>{{ client.connectionStatus or "-" }}</td>
+                      <td>{{ client.lastUpdateTime or "-" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% elif latest_run %}
+            <p>This saved run contained no client records.</p>
+          {% else %}
+            <p>Use “Fetch latest data” to retrieve and save Catalyst Center clients.</p>
+          {% endif %}
+        </div>
+      </details>
 
-      <section class="panel" aria-labelledby="runs-heading">
-        <h2 id="runs-heading">Saved runs</h2>
-        {% if runs %}
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Run</th>
-                  <th scope="col">Timestamp (UTC)</th>
-                  <th scope="col">Records</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for run in runs %}
+      <details class="panel collapsible-panel" open>
+        <summary id="runs-heading">Saved runs</summary>
+        <div class="panel-content">
+          {% if runs %}
+            <div class="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <td>{{ run.id }}</td>
-                    <td>{{ run.captured_at }}</td>
-                    <td>{{ run.record_count }}</td>
+                    <th scope="col">Run</th>
+                    <th scope="col">Timestamp (UTC)</th>
+                    <th scope="col">Records</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <p>No runs have been saved.</p>
-        {% endif %}
-      </section>
+                </thead>
+                <tbody>
+                  {% for run in runs %}
+                    <tr>
+                      <td>{{ run.id }}</td>
+                      <td>{{ run.captured_at }}</td>
+                      <td>{{ run.record_count }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p>No runs have been saved.</p>
+          {% endif %}
+        </div>
+      </details>
     </main>
+    <aside class="activity-panel" aria-label="Session activity">
+      <details id="activity-window" open>
+        <summary>
+          <span>Activity</span>
+          <span id="activity-indicator" class="activity-indicator">Idle</span>
+        </summary>
+        <div class="activity-content">
+          <p id="activity-current" class="activity-current">No calls running.</p>
+          <ol id="activity-history" class="activity-history" aria-live="polite"></ol>
+          <button id="clear-activity" class="secondary-button" type="button">
+            Clear history
+          </button>
+        </div>
+      </details>
+    </aside>
     <script>
       const refreshButton = document.getElementById("refresh-button");
       const refreshStatus = document.getElementById("refresh-status");
+      const activityWindow = document.getElementById("activity-window");
+      const activityIndicator = document.getElementById("activity-indicator");
+      const activityCurrent = document.getElementById("activity-current");
+      const activityHistory = document.getElementById("activity-history");
+      const activeCalls = new Map();
+      const activityStorageKey = "catalyst-center-activity";
+      let history = JSON.parse(sessionStorage.getItem(activityStorageKey) || "[]");
+
+      function saveHistory() {
+        sessionStorage.setItem(activityStorageKey, JSON.stringify(history));
+      }
+
+      function renderActivity() {
+        const now = performance.now();
+        const runningCalls = [...activeCalls.values()];
+        activityIndicator.textContent = runningCalls.length
+          ? `${runningCalls.length} running`
+          : "Idle";
+        activityCurrent.textContent = runningCalls.length
+          ? runningCalls.map((call) =>
+              `${call.method} ${call.path} — ${formatDuration(now - call.startedAt)}`
+            ).join(" | ")
+          : "No calls running.";
+
+        activityHistory.replaceChildren();
+        if (history.length === 0) {
+          const empty = document.createElement("li");
+          empty.textContent = "No completed calls this session.";
+          activityHistory.append(empty);
+        }
+        for (const entry of [...history].reverse()) {
+          const item = document.createElement("li");
+          const call = document.createElement("strong");
+          const result = document.createElement("span");
+          const duration = document.createElement("time");
+          const completedAt = document.createElement("time");
+          call.textContent = `${entry.method} ${entry.path}`;
+          result.textContent = entry.result;
+          duration.textContent = formatDuration(entry.duration);
+          duration.dateTime = `PT${(entry.duration / 1000).toFixed(3)}S`;
+          completedAt.textContent = new Date(entry.completedAt).toLocaleTimeString();
+          completedAt.dateTime = entry.completedAt;
+          item.append(call, result, duration, completedAt);
+          activityHistory.append(item);
+        }
+      }
+
+      function formatDuration(milliseconds) {
+        return `${(milliseconds / 1000).toFixed(2)}s`;
+      }
+
+      function trackRequest(url, options = {}) {
+        const requestUrl = new URL(url, window.location.href);
+        const call = {
+          method: (options.method || "GET").toUpperCase(),
+          path: `${requestUrl.pathname}${requestUrl.search}`,
+          startedAt: performance.now()
+        };
+        const callId = `${Date.now()}-${Math.random()}`;
+        activeCalls.set(callId, call);
+        activityWindow.open = true;
+        renderActivity();
+
+        return fetch(url, options).then(
+          (response) => {
+            const result = response.ok
+              ? `HTTP ${response.status}`
+              : `HTTP ${response.status} failed`;
+            finishCall(callId, result);
+            return response;
+          },
+          (error) => {
+            finishCall(callId, `Failed: ${error.message}`);
+            throw error;
+          }
+        );
+      }
+
+      function finishCall(callId, result) {
+        const call = activeCalls.get(callId);
+        if (!call) {
+          return;
+        }
+        history.push({
+          method: call.method,
+          path: call.path,
+          result,
+          duration: performance.now() - call.startedAt,
+          completedAt: new Date().toISOString()
+        });
+        activeCalls.delete(callId);
+        saveHistory();
+        renderActivity();
+      }
+
+      renderActivity();
+      window.setInterval(renderActivity, 100);
 
       refreshButton.addEventListener("click", async () => {
         refreshButton.disabled = true;
         refreshStatus.textContent = "Fetching Catalyst Center data...";
         try {
-          const response = await fetch("{{ url_for('main.refresh_assurance_clients') }}", {
+          const response = await trackRequest("{{ url_for('main.refresh_assurance_clients') }}", {
             method: "POST",
             headers: { "Accept": "application/json" }
           });
@@ -109,6 +225,12 @@
           refreshStatus.textContent = error.message;
           refreshButton.disabled = false;
         }
+      });
+
+      document.getElementById("clear-activity").addEventListener("click", () => {
+        history = [];
+        saveHistory();
+        renderActivity();
       });
     </script>
   </body>

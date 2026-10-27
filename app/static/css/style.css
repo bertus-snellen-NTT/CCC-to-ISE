@@ -84,6 +84,20 @@ button:disabled {
   box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 5%);
 }
 
+.collapsible-panel > summary,
+.activity-panel summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.collapsible-panel > summary {
+  font-size: 1.15rem;
+}
+
+.panel-content {
+  padding-top: 1rem;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -111,6 +125,79 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 
+.activity-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10;
+  width: min(25rem, calc(100vw - 2rem));
+  overflow: hidden;
+  border: 1px solid #cbd4e4;
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 0.75rem 2rem rgb(23 32 51 / 20%);
+}
+
+.activity-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  color: white;
+  background: #243452;
+}
+
+.activity-indicator {
+  color: #b7c8f7;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.activity-content {
+  padding: 1rem;
+}
+
+.activity-current {
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-history {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 15rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.activity-history li {
+  display: grid;
+  gap: 0.15rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid #e8ebf1;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-history li span {
+  color: #596579;
+}
+
+.activity-history li time {
+  color: #65728a;
+}
+
+.secondary-button {
+  padding: 0.4rem 0.65rem;
+  color: #243452;
+  background: #edf1f8;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 36rem) {
   body {
     padding: 1.5rem 1rem;
@@ -119,5 +206,11 @@ tbody tr:last-child td {
   .page-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .activity-panel {
+    right: 0.5rem;
+    bottom: 0.5rem;
+    width: calc(100vw - 1rem);
   }
 }
