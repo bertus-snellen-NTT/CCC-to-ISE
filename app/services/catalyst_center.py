@@ -2,8 +2,11 @@ import configparser
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import requests
+
+from app.services.activity import tracked_request
 
 
 @dataclass(frozen=True)
@@ -67,8 +70,13 @@ def load_settings(path: Path) -> CatalystCenterSettings:
 
 
 class CatalystCenterClient:
-    def __init__(self, settings: CatalystCenterSettings):
+    def __init__(
+        self,
+        settings: CatalystCenterSettings,
+        activity_calls: Optional[list[dict]] = None,
+    ):
         self.settings = settings
+        self.activity_calls = activity_calls if activity_calls is not None else []
         self.session = requests.Session()
         self.session.verify = settings.verify_tls
         self.session.headers.update({"Accept": "application/json"})
@@ -80,8 +88,12 @@ class CatalystCenterClient:
         timestamp = int(time.time() * 1000)
 
         while True:
-            response = self.session.get(
+            response = tracked_request(
+                self.session,
+                "get",
                 f"{self.settings.host}/dna/data/api/v1/clients",
+                self.activity_calls,
+                f"/dna/data/api/v1/clients?offset={offset}",
                 params={
                     "timestamp": timestamp,
                     "limit": self.settings.page_size,
@@ -133,8 +145,12 @@ class CatalystCenterClient:
             raise
 
     def _authenticate(self) -> None:
-        response = self.session.post(
+        response = tracked_request(
+            self.session,
+            "post",
             f"{self.settings.host}/dna/system/api/v1/auth/token",
+            self.activity_calls,
+            "/dna/system/api/v1/auth/token",
             auth=(self.settings.username, self.settings.password),
             timeout=self.settings.request_timeout_seconds,
         )

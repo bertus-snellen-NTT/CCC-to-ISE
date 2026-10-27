@@ -93,33 +93,66 @@
       </details>
     </main>
     <aside class="activity-panel" aria-label="Session activity">
-      <details id="activity-window" open>
-        <summary>
+      <div id="activity-window">
+        <button id="activity-toggle" class="activity-toggle" type="button"
+                aria-expanded="true" aria-controls="activity-content">
           <span>Activity</span>
           <span id="activity-indicator" class="activity-indicator">Idle</span>
-        </summary>
-        <div class="activity-content">
+        </button>
+        <div id="activity-content" class="activity-content">
           <p id="activity-current" class="activity-current">No calls running.</p>
           <ol id="activity-history" class="activity-history" aria-live="polite"></ol>
           <button id="clear-activity" class="secondary-button" type="button">
             Clear history
           </button>
         </div>
-      </details>
+      </div>
     </aside>
     <script>
       const refreshButton = document.getElementById("refresh-button");
       const refreshStatus = document.getElementById("refresh-status");
-      const activityWindow = document.getElementById("activity-window");
+      const activityToggle = document.getElementById("activity-toggle");
+      const activityContent = document.getElementById("activity-content");
       const activityIndicator = document.getElementById("activity-indicator");
       const activityCurrent = document.getElementById("activity-current");
       const activityHistory = document.getElementById("activity-history");
       const activeCalls = new Map();
       const activityStorageKey = "catalyst-center-activity";
-      let history = JSON.parse(sessionStorage.getItem(activityStorageKey) || "[]");
+      let history = [];
+
+      try {
+        const savedHistory = JSON.parse(sessionStorage.getItem(activityStorageKey) || "[]");
+        if (Array.isArray(savedHistory)) {
+          history = savedHistory;
+        }
+      } catch {
+        sessionStorage.removeItem(activityStorageKey);
+      }
 
       function saveHistory() {
+        history = history.slice(-100);
         sessionStorage.setItem(activityStorageKey, JSON.stringify(history));
+      }
+
+      function recordActivity(entry) {
+        if (
+          !entry ||
+          typeof entry.method !== "string" ||
+          typeof entry.path !== "string" ||
+          typeof entry.result !== "string" ||
+          !Number.isFinite(Number(entry.duration))
+        ) {
+          return;
+        }
+        history.push({
+          method: entry.method,
+          path: entry.path,
+          result: entry.result,
+          duration: Number(entry.duration),
+          completedAt: entry.completedAt || new Date().toISOString()
+        });
+        saveHistory();
+        renderActivity();
       }
 
       function renderActivity() {
@@ -170,11 +203,14 @@
         };
         const callId = `${Date.now()}-${Math.random()}`;
         activeCalls.set(callId, call);
-        activityWindow.open = true;
         renderActivity();
 
         return fetch(url, options).then(
-          (response) => {
+          async (response) => {
+            const payload = await response.clone().json().catch(() => null);
+            if (Array.isArray(payload?.activityCalls)) {
+              payload.activityCalls.forEach(recordActivity);
+            }
             const result = response.ok
               ? `HTTP ${response.status}`
               : `HTTP ${response.status} failed`;
@@ -207,6 +243,18 @@
 
       renderActivity();
       window.setInterval(renderActivity, 100);
+
+      const activityCollapsedKey = "catalyst-center-activity-collapsed";
+      const activityIsCollapsed =
+        sessionStorage.getItem(activityCollapsedKey) === "true";
+      activityContent.hidden = activityIsCollapsed;
+      activityToggle.setAttribute("aria-expanded", String(!activityIsCollapsed));
+      activityToggle.addEventListener("click", () => {
+        const willCollapse = !activityContent.hidden;
+        activityContent.hidden = willCollapse;
+        activityToggle.setAttribute("aria-expanded", String(!willCollapse));
+        sessionStorage.setItem(activityCollapsedKey, String(willCollapse));
+      });
 
       refreshButton.addEventListener("click", async () => {
         refreshButton.disabled = true;

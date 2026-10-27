@@ -1,8 +1,11 @@
 import configparser
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import requests
+
+from app.services.activity import tracked_request
 
 
 @dataclass(frozen=True)
@@ -58,16 +61,27 @@ def load_ise_settings(path: Path) -> ISESettings:
 
 
 class ISEClient:
-    def __init__(self, settings: ISESettings):
+    def __init__(
+        self, settings: ISESettings, activity_calls: Optional[list[dict]] = None
+    ):
         self.settings = settings
+        self.activity_calls = activity_calls if activity_calls is not None else []
         self.session = requests.Session()
         self.session.auth = (settings.username, settings.password)
         self.session.verify = settings.verify_tls
         self.session.headers.update({"Accept": "application/json"})
 
     def find_endpoints_by_mac(self, mac_address: str) -> list[dict]:
-        response = self.session.get(
+        lookup_number = sum(
+            call["path"].startswith("/ers/config/endpoint?lookup=")
+            for call in self.activity_calls
+        ) + 1
+        response = tracked_request(
+            self.session,
+            "get",
             f"{self.settings.host}/ers/config/endpoint",
+            self.activity_calls,
+            f"/ers/config/endpoint?lookup={lookup_number}",
             params={"filter": f"mac.EQ.{mac_address}"},
             timeout=self.settings.request_timeout_seconds,
         )

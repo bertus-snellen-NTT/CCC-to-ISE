@@ -56,7 +56,7 @@ python run.py
 
 Open <http://127.0.0.1:5000> in your browser. The development server runs with debug mode enabled; do not use it as a production server.
 
-The landing page reads the latest saved Catalyst Center run from `instance/catalyst_center.sqlite3`. Select **Fetch latest data** to retrieve and persist a new run. The database is reused across application restarts; each successful fetch adds a timestamped run and stores the complete Catalyst Center client record as well as normalized MAC address, IPv4 address, vendor, connection status, and last update time fields. The client data and saved-run panels can be collapsed. A collapsible panel in the lower-right corner shows active app requests, elapsed time, and completed-call history for the current browser session; that history remains available across page reloads in the same tab.
+The landing page reads the latest saved Catalyst Center run from `instance/catalyst_center.sqlite3`. Select **Fetch latest data** to retrieve and persist a new run. The database is reused across application restarts; each successful fetch adds a timestamped run and stores the complete Catalyst Center client record as well as normalized MAC address, IPv4 address, vendor, connection status, and last update time fields. The client data and saved-run panels can be collapsed. A collapsible panel in the lower-right corner shows active app requests, elapsed time, and history of underlying Catalyst Center authentication/client-page requests and ISE endpoint lookups for the current browser session; that history remains available across page reloads in the same tab.
 
 ## API
 
