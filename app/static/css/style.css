@@ -25,6 +25,17 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.page-actions button {
+  max-width: 20rem;
+}
+
 h1,
 h2,
 p {
@@ -195,6 +206,11 @@ tbody tr:last-child td {
   color: #596579;
 }
 
+.activity-history li .activity-service {
+  color: #3859b7;
+  font-weight: 700;
+}
+
 .activity-history li time {
   color: #65728a;
 }
@@ -214,6 +230,10 @@ tbody tr:last-child td {
   .page-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .page-actions {
+    justify-content: flex-start;
   }
 
   .activity-panel {

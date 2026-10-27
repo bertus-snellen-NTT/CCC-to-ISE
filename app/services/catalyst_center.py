@@ -94,6 +94,7 @@ class CatalystCenterClient:
                 f"{self.settings.host}/dna/data/api/v1/clients",
                 self.activity_calls,
                 f"/dna/data/api/v1/clients?offset={offset}",
+                "Catalyst Center",
                 params={
                     "timestamp": timestamp,
                     "limit": self.settings.page_size,
@@ -151,6 +152,7 @@ class CatalystCenterClient:
             f"{self.settings.host}/dna/system/api/v1/auth/token",
             self.activity_calls,
             "/dna/system/api/v1/auth/token",
+            "Catalyst Center",
             auth=(self.settings.username, self.settings.password),
             timeout=self.settings.request_timeout_seconds,
         )

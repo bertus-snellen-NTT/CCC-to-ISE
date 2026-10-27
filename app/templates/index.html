@@ -21,44 +21,56 @@
             <p class="subheading">No saved Catalyst Center data yet.</p>
           {% endif %}
         </div>
-        <button id="refresh-button" type="button">Fetch latest data</button>
+        <div class="page-actions">
+          <button id="refresh-button" type="button">
+            Fetch latest data from Catalyst Center
+          </button>
+          <button id="ise-check-button" type="button">
+            Check all MAC addresses in ISE
+          </button>
+        </div>
       </header>
 
       <p id="refresh-status" class="status" role="status" aria-live="polite"></p>
+      <p id="ise-status" class="status" role="status" aria-live="polite"></p>
 
       <details class="panel collapsible-panel" open>
         <summary id="clients-heading">Latest saved client data</summary>
         <div class="panel-content">
-          {% if clients %}
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">MAC address</th>
-                    <th scope="col">IPv4 address</th>
-                    <th scope="col">Vendor</th>
-                    <th scope="col">Connection status</th>
-                    <th scope="col">Last update time</th>
-                  </tr>
-                </thead>
-                <tbody>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">MAC address</th>
+                  <th scope="col">IPv4 address</th>
+                  <th scope="col">Vendor</th>
+                  <th scope="col">Connection status</th>
+                  <th scope="col">Last update time</th>
+                  <th scope="col">ISE match</th>
+                  <th scope="col">ISE endpoint records</th>
+                </tr>
+              </thead>
+              <tbody id="clients-table-body">
+                {% if clients %}
                   {% for client in clients %}
                     <tr>
-                      <td>{{ client.macAddress or "-" }}</td>
+                      <td data-mac="{{ (client.macAddress or '')|lower }}">{{ client.macAddress or "-" }}</td>
                       <td>{{ client.ipv4Address or "-" }}</td>
                       <td>{{ client.vendor or "-" }}</td>
                       <td>{{ client.connectionStatus or "-" }}</td>
                       <td>{{ client.lastUpdateTime or "-" }}</td>
+                      <td class="ise-match">Not checked</td>
+                      <td class="ise-endpoint-count">-</td>
                     </tr>
                   {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          {% elif latest_run %}
-            <p>This saved run contained no client records.</p>
-          {% else %}
-            <p>Use “Fetch latest data” to retrieve and save Catalyst Center clients.</p>
-          {% endif %}
+                {% else %}
+                  <tr>
+                    <td colspan="7">No saved clients. Fetch data from Catalyst Center first.</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </details>
 
@@ -111,6 +123,9 @@
     <script>
       const refreshButton = document.getElementById("refresh-button");
       const refreshStatus = document.getElementById("refresh-status");
+      const iseCheckButton = document.getElementById("ise-check-button");
+      const iseStatus = document.getElementById("ise-status");
+      const clientsTableBody = document.getElementById("clients-table-body");
       const activityToggle = document.getElementById("activity-toggle");
       const activityContent = document.getElementById("activity-content");
       const activityIndicator = document.getElementById("activity-indicator");
@@ -146,6 +161,7 @@
         }
         history.push({
           method: entry.method,
+          service: entry.service || serviceForPath(entry.path),
           path: entry.path,
           result: entry.result,
           duration: Number(entry.duration),
@@ -153,6 +169,10 @@
         });
         saveHistory();
         renderActivity();
+      }
+
+      function serviceForPath(path) {
+        return path.startsWith("/ers/") ? "ISE" : "Catalyst Center";
       }
 
       function renderActivity() {
@@ -163,7 +183,7 @@
           : "Idle";
         activityCurrent.textContent = runningCalls.length
           ? runningCalls.map((call) =>
-              `${call.method} ${call.path} — ${formatDuration(now - call.startedAt)}`
+              `${call.service} ${call.method} ${call.path} — ${formatDuration(now - call.startedAt)}`
             ).join(" | ")
           : "No calls running.";
 
@@ -175,17 +195,20 @@
         }
         for (const entry of [...history].reverse()) {
           const item = document.createElement("li");
+          const service = document.createElement("span");
           const call = document.createElement("strong");
           const result = document.createElement("span");
           const duration = document.createElement("time");
           const completedAt = document.createElement("time");
+          service.className = "activity-service";
+          service.textContent = entry.service || serviceForPath(entry.path);
           call.textContent = `${entry.method} ${entry.path}`;
           result.textContent = entry.result;
           duration.textContent = formatDuration(entry.duration);
           duration.dateTime = `PT${(entry.duration / 1000).toFixed(3)}S`;
           completedAt.textContent = new Date(entry.completedAt).toLocaleTimeString();
           completedAt.dateTime = entry.completedAt;
-          item.append(call, result, duration, completedAt);
+          item.append(service, call, result, duration, completedAt);
           activityHistory.append(item);
         }
       }
@@ -197,6 +220,7 @@
       function trackRequest(url, options = {}) {
         const requestUrl = new URL(url, window.location.href);
         const call = {
+          service: "Application",
           method: (options.method || "GET").toUpperCase(),
           path: `${requestUrl.pathname}${requestUrl.search}`,
           startedAt: performance.now()
@@ -234,6 +258,7 @@
           path: call.path,
           result,
           duration: performance.now() - call.startedAt,
+          service: call.service,
           completedAt: new Date().toISOString()
         });
         activeCalls.delete(callId);
@@ -258,7 +283,7 @@
 
       refreshButton.addEventListener("click", async () => {
         refreshButton.disabled = true;
-        refreshStatus.textContent = "Fetching Catalyst Center data...";
+        refreshStatus.textContent = "Fetching latest data from Catalyst Center...";
         try {
           const response = await trackRequest("{{ url_for('main.refresh_assurance_clients') }}", {
             method: "POST",
@@ -272,6 +297,63 @@
         } catch (error) {
           refreshStatus.textContent = error.message;
           refreshButton.disabled = false;
+        }
+      });
+
+      iseCheckButton.addEventListener("click", async () => {
+        iseCheckButton.disabled = true;
+        iseStatus.textContent = "Fetching Catalyst Center MAC addresses and checking ISE...";
+        try {
+          const response = await trackRequest(
+            "{{ url_for('main.ise_endpoints_for_assurance_clients') }}"
+          );
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || `Request failed (${response.status})`);
+          }
+
+          const iseResults = new Map(
+            result.results.map((entry) => [entry.macAddress.toLowerCase(), entry])
+          );
+          clientsTableBody.replaceChildren();
+          if (result.clients.length === 0) {
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+            cell.colSpan = 7;
+            cell.textContent = "Catalyst Center returned no client records.";
+            row.append(cell);
+            clientsTableBody.append(row);
+          }
+          for (const client of result.clients) {
+            const row = document.createElement("tr");
+            const macAddress = client.macAddress || "";
+            const macResult = iseResults.get(macAddress.toLowerCase());
+            const values = [
+              macAddress,
+              client.ipv4Address || "-",
+              client.vendor || "-",
+              client.connectionStatus || "-",
+              client.lastUpdateTime || "-",
+              macResult ? (macResult.found ? "Found" : "Not found") : "Not checked",
+              macResult ? String(macResult.endpoints.length) : "-"
+            ];
+            values.forEach((value, index) => {
+              const cell = document.createElement("td");
+              cell.textContent = value;
+              if (index === 0) {
+                cell.dataset.mac = macAddress.toLowerCase();
+              }
+              row.append(cell);
+            });
+            clientsTableBody.append(row);
+          }
+          iseStatus.textContent =
+            `Checked ${result.checked} MAC addresses: ${result.foundCount} found in ISE, ` +
+            `${result.missingCount} not found. Results are shown in the Catalyst Center table.`;
+        } catch (error) {
+          iseStatus.textContent = error.message;
+        } finally {
+          iseCheckButton.disabled = false;
         }
       });
 

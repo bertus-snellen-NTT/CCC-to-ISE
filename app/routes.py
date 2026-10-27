@@ -122,6 +122,7 @@ def ise_endpoints_for_assurance_clients():
         missingCount=len(missing),
         results=results,
         missingMacAddresses=missing,
+        clients=[_client_table_data(client) for client in clients],
         activityCalls=activity_calls,
     )
 
@@ -152,3 +153,25 @@ def _mac_addresses(clients: list[dict]) -> list[str]:
             and mac_address.strip()
         }
     )
+
+
+def _client_table_data(client: dict) -> dict:
+    return {
+        "macAddress": _client_value(client, "macAddress"),
+        "ipv4Address": _client_value(client, "ipv4Address"),
+        "vendor": _client_value(client, "vendor"),
+        "connectionStatus": _client_value(
+            client, "connectionStatus", "connectioSatus"
+        ),
+        "lastUpdateTime": _client_value(
+            client, "LastUpdateTime", "lastUpdateTime", "lastUpdated"
+        ),
+    }
+
+
+def _client_value(client: dict, *keys: str) -> str:
+    for key in keys:
+        value = client.get(key)
+        if isinstance(value, (str, int, float)):
+            return str(value)
+    return ""

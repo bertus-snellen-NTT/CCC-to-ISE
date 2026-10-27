@@ -82,6 +82,7 @@ class ISEClient:
             f"{self.settings.host}/ers/config/endpoint",
             self.activity_calls,
             f"/ers/config/endpoint?lookup={lookup_number}",
+            "ISE",
             params={"filter": f"mac.EQ.{mac_address}"},
             timeout=self.settings.request_timeout_seconds,
         )

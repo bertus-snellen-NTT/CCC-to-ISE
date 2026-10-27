@@ -11,6 +11,7 @@ def tracked_request(
     url: str,
     activity_calls: list[dict],
     path: str,
+    service: str,
     **kwargs: Any,
 ) -> requests.Response:
     started_at = time.perf_counter()
@@ -31,6 +32,7 @@ def tracked_request(
         activity_calls.append(
             {
                 "method": method.upper(),
+                "service": service,
                 "path": path,
                 "result": result,
                 "duration": (time.perf_counter() - started_at) * 1000,
